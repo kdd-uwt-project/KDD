@@ -10,6 +10,8 @@ def get_data():
     train_clicks_file = './data_set_phase1/train_clicks.csv'
     train_queries_file = './data_set_phase1/train_queries.csv'
     train_plans_file = './data_set_phase1/train_plans.csv'
+    # train_queries_file = './data_set_phase1/train_queries.csv'
+    # train_plans_file = './data_set_phase1/train_plans.csv'
 
     user_click = []
     clicks_reader = csv.reader(open(train_clicks_file, 'r'))
