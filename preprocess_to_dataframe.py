@@ -34,7 +34,7 @@ def get_data():
             cur.append(int(line[0]))
             cur.append(line[1])
             cur.append(float(recomend['distance']))
-            cur.append(float(recomend['price']))
+            cur.append(float(recomend['price']) if not recomend['price'] == '' else 0)
             cur.append(float(recomend['eta']))
             cur.append(int(recomend['transport_mode']))
             user_plans.append(cur)
