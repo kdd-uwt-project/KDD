@@ -2,3 +2,4 @@ data_set_phase1
 .idea
 model
 *.pkl
+*.csv

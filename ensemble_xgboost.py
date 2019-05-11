@@ -1,7 +1,9 @@
 import sklearn
 import pickle
 from sklearn.svm import SVC
-from sklearn.linear_model import SGDClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.ensemble import GradientBoostingClassifier
+
 
 def data_gen():
     train_plans = pickle.load(open('./data_set_phase1/train_plans.pickle', 'rb'))
@@ -47,7 +49,7 @@ def data_gen():
 
 
 def train():
-    models = [SGDClassifier() for i in range(11)]
+    models = [GradientBoostingClassifier() for i in range(11)]
     data = pickle.load(open('./train_data/data.pkl', 'rb'))
     label = pickle.load(open('./train_data/label.pkl', 'rb'))
     for i in range(11):
@@ -55,7 +57,7 @@ def train():
         models[i].fit(data[i], label[i])
 
     for i in range(11):
-        pickle.dump(models[i], open('./model/model_for_transport_%d.pkl' % i, 'wb'))
+        pickle.dump(models[i], open('./model/Xgboost/model_for_transport_%d.pkl' % i, 'wb'))
 
 
 def test():
@@ -65,18 +67,17 @@ def test():
     for i in range(11):
         models.append(pickle.load(open('./model/model_for_transport_%d.pkl' % i, 'rb')))
 
-
 def get_result():
     data = pickle.load(open('./data_set_phase1/test_plans.pickle', 'rb'))
     models = []
-    f = open("svm.csv", 'w')
+    f = open("xboost.csv", 'w')
     f.write('"sid","recommend_mode"\n')
     for i in range(11):
-        models.append(pickle.load(open('./model/model_for_transport_%d.pkl' % i, 'rb')))
+        models.append(pickle.load(open('./model/Xgboost/model_for_transport_%d.pkl' % i, 'rb')))
     count = 0
     for query in data:
         # print(len(query[2]))
-        max_value = -12
+        max_value = 0
         max_index = 0
         for plan in query[2]:
             hour = int(query[1].split(' ')[1].split(':')[0])
@@ -90,22 +91,20 @@ def get_result():
                 hour = 3
             temp = [[hour, plan['distance'], plan['price'] if plan['price'] != '' else 0, plan['eta']]]
 
-            result = models[plan['transport_mode']-1].decision_function(temp)[0]
-            if result > max_value:
-                max_value = result
+            result = models[plan['transport_mode']-1].predict_proba(temp)[0]
+            if result[1] > max_value:
+                max_value = result[1]
                 max_index = plan['transport_mode']
         count += 1
         if count % 1000 == 999:
             print(count)
 
-        # if max_value > -0.5:
-        f.write('"%d","%d"\n' % (query[0], max_index))
-        # else:
-        #     print('haha')
-        #     f.write('"%d","%d"\n' % (query[0], 0))
+        if max_value > 0.1:
+            f.write('"%d","%d"\n' % (query[0], max_index))
+        else:
+            f.write('"%d","%d"\n' % (query[0], 0))
 
 
 if __name__ == '__main__':
-    # data_gen()
     # train()
     get_result()
