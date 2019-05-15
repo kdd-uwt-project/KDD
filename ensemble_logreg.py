@@ -13,34 +13,53 @@ def data_gen():
     print(train_plans[0])
     print(train_clicks[0])
 
-    data = [[[] for i in range(11)], [[] for i in range(11)]]
-    data_label = [[[] for i in range(11)], [[] for i in range(11)]]
+    data = [[[] for i in range(11)], []]
+    data_label = [[[] for i in range(11)], []]
     index = 0
 
     count = 0
     click_index = 0
     for plan in train_plans:
-        hour = int(plan[1].split(' ')[1].split(':')[0])
-        if 8 <= hour <= 10:
-            hour = 0
-        elif 11 <= hour <= 15:
-            hour = 1
-        elif 16 <= hour <= 20:
-            hour = 2
+        if index != 1:
+            hour = int(plan[1].split(' ')[1].split(':')[0])
+            if 8 <= hour <= 10:
+                hour = 0
+            elif 11 <= hour <= 15:
+                hour = 1
+            elif 16 <= hour <= 20:
+                hour = 2
+            else:
+                hour = 3
+            target_mode = 0
+            if plan[0] == train_clicks[click_index][0]:
+                target_mode = train_clicks[click_index][1]
+                click_index += 1
+            eindex = 0
+            minDis = 1e30
+            minPrice = 1e30
+            minETA = 1e30
+            for eplan in plan[2]:
+                if eplan['distance'] < minDis and eplan['distance'] != 0:
+                    minDis = eplan['distance']
+                if eplan['price'] != '':
+                    if eplan['price'] < minPrice:
+                        minPrice = eplan['price']
+                if eplan['eta'] < minETA and eplan['eta'] != 0:
+                    minETA = eplan['eta']
+            for eplan in plan[2]:
+                data[index][eplan['transport_mode']-1].append([eindex, hour, eplan['distance'] / minDis, eplan['price'] / minPrice if eplan['price'] != '' else 0, eplan['eta'] / minETA])
+                data_label[index][eplan['transport_mode']-1].append(1 if target_mode == eplan['transport_mode'] else 0)
+                eindex += 1
+            count += 1
+            if count > len(train_plans) / 5 * 4:
+                index = 1
         else:
-            hour = 3
-        target_mode = 0
-        if plan[0] == train_clicks[click_index][0]:
-            target_mode = train_clicks[click_index][1]
-            click_index += 1
-        eindex = 0
-        for eplan in plan[2]:
-            data[index][eplan['transport_mode']-1].append([eindex, hour, eplan['distance'], eplan['price'] if eplan['price'] != '' else 0, eplan['eta']])
-            data_label[index][eplan['transport_mode']-1].append(1 if target_mode == eplan['transport_mode'] else 0)
-            eindex += 1
-        count += 1
-        if count > len(train_plans) / 5 * 4:
-            index = 1
+            target_mode = 0
+            if plan[0] == train_clicks[click_index][0]:
+                target_mode = train_clicks[click_index][1]
+                click_index += 1
+            data[index].append(plan)
+            data_label[index].append(target_mode)
 
     pickle.dump(data[0], open('./train_data/data.pkl', 'wb'))
     pickle.dump(data[1], open('./test_data/data.pkl', 'wb'))
@@ -49,7 +68,7 @@ def data_gen():
 
 
 def train():
-    models = [LogisticRegression(random_state=0, solver='lbfgs', multi_class='multinomial') for i in range(11)]
+    models = [LogisticRegression(random_state=0, solver='lbfgs', multi_class='multinomial', max_iter=500) for i in range(11)]
     data = pickle.load(open('./train_data/data.pkl', 'rb'))
     label = pickle.load(open('./train_data/label.pkl', 'rb'))
     for i in range(11):
@@ -65,7 +84,56 @@ def test():
     data = pickle.load(open('./test_data/data.pkl', 'rb'))
     label = pickle.load(open('./test_data/label.pkl', 'rb'))
     for i in range(11):
-        models.append(pickle.load(open('./model/model_for_transport_%d.pkl' % i, 'rb')))
+        models.append(pickle.load(open('./model/LogReg/model_for_transport_%d.pkl' % i, 'rb')))
+
+    right = 0
+    count = 0
+    for query in data:
+        # print(len(query[2]))
+        max_value = 0
+        max_index = 0
+        pindex = 0
+        minDis = 1e30
+        minPrice = 1e30
+        minETA = 1e30
+        for eplan in query[2]:
+            if eplan['distance'] < minDis and eplan['distance'] != 0:
+                minDis = eplan['distance']
+            if eplan['price'] != '':
+                if eplan['price'] < minPrice:
+                    minPrice = eplan['price']
+            if eplan['eta'] < minETA and eplan['eta'] != 0:
+                minETA = eplan['eta']
+        for plan in query[2]:
+            hour = int(query[1].split(' ')[1].split(':')[0])
+            if 8 <= hour <= 10:
+                hour = 0
+            elif 11 <= hour <= 15:
+                hour = 1
+            elif 16 <= hour <= 20:
+                hour = 2
+            else:
+                hour = 3
+            temp = [[pindex, hour, plan['distance'] / minDis, plan['price'] / minPrice if plan['price'] != '' else 0,
+                     plan['eta'] / minETA]]
+
+            result = models[plan['transport_mode'] - 1].predict_proba(temp)[0]
+            if result[1] > max_value:
+                max_value = result[1]
+                max_index = plan['transport_mode']
+            pindex += 1
+
+        result = 0
+        if max_value > 0.1:
+            result = max_index
+
+        if result == label[count]:
+            right += 1
+
+        count += 1
+
+    print(right, count)
+
 
 def get_result():
     data = pickle.load(open('./data_set_phase1/test_plans.pickle', 'rb'))
@@ -80,6 +148,17 @@ def get_result():
         max_value = 0
         max_index = 0
         pindex = 0
+        minDis = 1e30
+        minPrice = 1e30
+        minETA = 1e30
+        for eplan in query[2]:
+            if eplan['distance'] < minDis and eplan['distance'] != 0:
+                minDis = eplan['distance']
+            if eplan['price'] != '':
+                if eplan['price'] < minPrice:
+                    minPrice = eplan['price']
+            if eplan['eta'] < minETA and eplan['eta'] != 0:
+                minETA = eplan['eta']
         for plan in query[2]:
             hour = int(query[1].split(' ')[1].split(':')[0])
             if 8 <= hour <= 10:
@@ -90,7 +169,7 @@ def get_result():
                 hour = 2
             else:
                 hour = 3
-            temp = [[pindex, hour, plan['distance'], plan['price'] if plan['price'] != '' else 0, plan['eta']]]
+            temp = [[pindex, hour, plan['distance'] / minDis, plan['price'] / minPrice if plan['price'] != '' else 0, plan['eta'] / minETA]]
 
             result = models[plan['transport_mode']-1].predict_proba(temp)[0]
             if result[1] > max_value:
@@ -108,6 +187,7 @@ def get_result():
 
 
 if __name__ == '__main__':
-    data_gen()
-    train()
-    get_result()
+    # data_gen()
+    # train()
+    test()
+    # get_result()
