@@ -3,6 +3,7 @@ import pickle
 from sklearn.svm import SVC
 from sklearn.linear_model import SGDClassifier
 
+
 def data_gen():
     train_plans = pickle.load(open('./data_set_phase1/train_plans.pickle', 'rb'))
     train_clicks = pickle.load(open('./data_set_phase1/train_clicks.pickle', 'rb'))

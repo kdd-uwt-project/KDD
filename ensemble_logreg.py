@@ -33,9 +33,11 @@ def data_gen():
         if plan[0] == train_clicks[click_index][0]:
             target_mode = train_clicks[click_index][1]
             click_index += 1
+        eindex = 0
         for eplan in plan[2]:
-            data[index][eplan['transport_mode']-1].append([hour, eplan['distance'], eplan['price'] if eplan['price'] != '' else 0, eplan['eta']])
+            data[index][eplan['transport_mode']-1].append([eindex, hour, eplan['distance'], eplan['price'] if eplan['price'] != '' else 0, eplan['eta']])
             data_label[index][eplan['transport_mode']-1].append(1 if target_mode == eplan['transport_mode'] else 0)
+            eindex += 1
         count += 1
         if count > len(train_plans) / 5 * 4:
             index = 1
@@ -77,6 +79,7 @@ def get_result():
         # print(len(query[2]))
         max_value = 0
         max_index = 0
+        pindex = 0
         for plan in query[2]:
             hour = int(query[1].split(' ')[1].split(':')[0])
             if 8 <= hour <= 10:
@@ -87,12 +90,13 @@ def get_result():
                 hour = 2
             else:
                 hour = 3
-            temp = [[hour, plan['distance'], plan['price'] if plan['price'] != '' else 0, plan['eta']]]
+            temp = [[pindex, hour, plan['distance'], plan['price'] if plan['price'] != '' else 0, plan['eta']]]
 
             result = models[plan['transport_mode']-1].predict_proba(temp)[0]
             if result[1] > max_value:
                 max_value = result[1]
                 max_index = plan['transport_mode']
+            pindex += 1
         count += 1
         if count % 1000 == 999:
             print(count)
@@ -104,5 +108,6 @@ def get_result():
 
 
 if __name__ == '__main__':
-    # train()
+    data_gen()
+    train()
     get_result()
