@@ -7,6 +7,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn import metrics
 
+
 def data_gen():
     train_plans = pickle.load(open('./data_set_phase1/train_plans.pickle', 'rb'))
     train_clicks = pickle.load(open('./data_set_phase1/train_clicks.pickle', 'rb'))
