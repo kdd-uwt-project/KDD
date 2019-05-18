@@ -1,6 +1,7 @@
 import sklearn
 import pickle
 from sklearn.svm import SVC
+from sklearn import metrics
 from sklearn.linear_model import LogisticRegression
 
 def data_gen():
@@ -85,7 +86,7 @@ def test():
     label = pickle.load(open('./test_data/label.pkl', 'rb'))
     for i in range(11):
         models.append(pickle.load(open('./model/LogReg/model_for_transport_%d.pkl' % i, 'rb')))
-
+    pred = []
     right = 0
     count = 0
     for query in data:
@@ -124,15 +125,25 @@ def test():
             pindex += 1
 
         result = 0
-        if max_value > 0.1:
+        if max_value > 0.15:
             result = max_index
+        # else:
+        #     print('haha')
 
+        pred.append(result)
         if result == label[count]:
             right += 1
 
+        if count % 1000 == 999:
+            print(count + 1)
         count += 1
 
+    pickle.dump(pred, open('test_pred_result.pkl', 'wb'))
     print(right, count)
+    print(metrics.recall_score(label, pred, average='micro'))
+    print(metrics.precision_score(label, pred, average='micro'))
+    print(metrics.f1_score(label, pred, average='micro'))
+    print(metrics.classification_report(label, pred))
 
 
 def get_result():

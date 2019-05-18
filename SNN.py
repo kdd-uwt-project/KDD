@@ -6,6 +6,24 @@ from sklearn.ensemble import GradientBoostingClassifier
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.ensemble import AdaBoostClassifier
 from sklearn import metrics
+import torch
+import torch.nn as nn
+
+
+class SimpleNN(nn.Module):
+    def __init__(self):
+        super(SimpleNN, self).__init__()
+        self.input = nn.Linear(6, 40)
+        self.hidden = nn.Linear(40, 40)
+        self.output = nn.Linear(40, 2)
+
+    def forward(self, x):
+        x = self.input(x)
+        x = self.hidden(x)
+        x = self.output(x)
+        x = nn.Sigmoid(x)
+        return x
+
 
 def data_gen():
     train_plans = pickle.load(open('./data_set_phase1/train_plans.pickle', 'rb'))
@@ -17,8 +35,8 @@ def data_gen():
     print(train_plans[0])
     print(train_clicks[0])
 
-    data = [[[] for i in range(11)], []]
-    data_label = [[[] for i in range(11)], []]
+    data = [[], []]
+    data_label = [[], []]
     index = 0
 
     count = 0
@@ -51,8 +69,8 @@ def data_gen():
                 if eplan['eta'] < minETA and eplan['eta'] != 0:
                     minETA = eplan['eta']
             for eplan in plan[2]:
-                data[index][eplan['transport_mode']-1].append([eindex, hour, eplan['distance'] / minDis, eplan['price'] / minPrice if eplan['price'] != '' else 0, eplan['eta'] / minETA])
-                data_label[index][eplan['transport_mode']-1].append(1 if target_mode == eplan['transport_mode'] else 0)
+                data[index].append([eplan['transport_mode'] - 1, eindex, hour, eplan['distance'] / minDis, eplan['price'] / minPrice if eplan['price'] != '' else 0, eplan['eta'] / minETA])
+                data_label[index].append(1 if target_mode == eplan['transport_mode'] else 0)
                 eindex += 1
                 if eindex > 3:
                     break
@@ -67,9 +85,9 @@ def data_gen():
             data[index].append(plan)
             data_label[index].append(target_mode)
 
-    pickle.dump(data[0], open('./train_data/data.pkl', 'wb'))
+    pickle.dump(data[0], open('./train_data/nn_data.pkl', 'wb'))
     pickle.dump(data[1], open('./test_data/data.pkl', 'wb'))
-    pickle.dump(data_label[0], open('./train_data/label.pkl', 'wb'))
+    pickle.dump(data_label[0], open('./train_data/nn_label.pkl', 'wb'))
     pickle.dump(data_label[1], open('./test_data/label.pkl', 'wb'))
 
 
@@ -204,7 +222,7 @@ def get_result():
 
 
 if __name__ == '__main__':
-    # data_gen()
-    train()
-    test()
+    data_gen()
+    # train()
+    # test()
     # get_result()
