@@ -51,6 +51,11 @@ def data_gen(hour_m, train_index):
     df_userPlans_with_click['isSelected'] = 0
     df_userPlans_with_click.loc[df_userPlans_with_click['TransportMode'] == df_userPlans_with_click['Click'], 'isSelected'] = 1
     df_userPlans_with_click.loc[df_userPlans_with_click['Click']==0, 'isSelected'] = 2
+
+    #add new features: the first transportMode in each session
+    df_TMFirst = df_userPlans.groupby('Sid').first().reset_index()
+    df_TMFirst = df_TMFirst[['Sid', 'TransportMode']].rename(columns={'TransportMode':'FirstTM'})
+    df_userPlans_with_click = pd.merge(df_userPlans_with_click, df_TMFirst, how = "left", on=['Sid'])
     
     print("generate data")
     #create data structure to store all plans to each transportMode
@@ -61,21 +66,21 @@ def data_gen(hour_m, train_index):
         #for transportMode == 3, dismiss the order
         if index == 2:
             temp_data = df_userPlans_with_click[df_userPlans_with_click['TransportMode'] == (index + 1)]
-            data_transportMode_train[index] = temp_data[['Order', 'Hour', 'Distance', 'ETA']]
+            data_transportMode_train[index] = temp_data[['Order', 'Hour', 'Distance', 'ETA', 'FirstTM']]
             data_transportMode_label_train[index] = temp_data['isSelected']
         elif index == 3:
             #for transportMode == 4, dismiss the order and price
             temp_data = df_userPlans_with_click[df_userPlans_with_click['TransportMode'] == (index + 1)]
-            data_transportMode_train[index] = temp_data[['Order', 'Distance', 'ETA']]
+            data_transportMode_train[index] = temp_data[['Order', 'Hour', 'Distance', 'Price', 'ETA', 'FirstTM']]
             data_transportMode_label_train[index] = temp_data['isSelected']
         elif index == 7:
             #for transportMode == 8, dismiss the price
             temp_data = df_userPlans_with_click[df_userPlans_with_click['TransportMode'] == (index + 1)]
-            data_transportMode_train[index] = temp_data[['Order', 'Hour', 'Distance', 'ETA']]
+            data_transportMode_train[index] = temp_data[['Order', 'Hour', 'Distance', 'ETA', 'FirstTM']]
             data_transportMode_label_train[index] = temp_data['isSelected']
         else:
             temp_data = df_userPlans_with_click[df_userPlans_with_click['TransportMode'] == (index + 1)]
-            data_transportMode_train[index] = temp_data[['Order', 'Hour', 'Distance', 'Price', 'ETA']]
+            data_transportMode_train[index] = temp_data[['Order', 'Hour', 'Distance', 'Price', 'ETA', 'FirstTM']]
             data_transportMode_label_train[index] = temp_data['isSelected']
 
     #dump to files
@@ -104,6 +109,11 @@ def get_result(hour_m, train_index):
     #set Hour column
     data['Hour'] = getHourMByList(data['PlanTime'].dt.hour, hour_m)
 
+    #add new features: the first transportMode in each session
+    df_TMFirst = data.groupby('Sid').first().reset_index()
+    df_TMFirst = df_TMFirst[['Sid', 'TransportMode']].rename(columns={'TransportMode':'FirstTM'})
+    data = pd.merge(data, df_TMFirst, how = "left", on=['Sid'])
+
     queries = pickle.load(open('./data_set_phase1/test_queries.pickle', 'rb'))
     models = []
     for i in range(11):
@@ -123,13 +133,13 @@ def get_result(hour_m, train_index):
             #for each plan
             plan_data = []
             if eplan['TransportMode'] == 3:
-                plan_data = [eplan[['Order', 'Hour', 'Distance', 'ETA']]]
+                plan_data = [eplan[['Order', 'Hour', 'Distance', 'ETA', 'FirstTM']]]
             elif eplan['TransportMode'] == 4:
-                plan_data = [eplan[['Order', 'Distance', 'ETA']]]
+                plan_data = [eplan[['Order', 'Hour', 'Distance', 'Price', 'ETA', 'FirstTM']]]
             elif eplan['TransportMode'] == 8:
-                plan_data = [eplan[['Order', 'Hour', 'Distance', 'ETA']]]
+                plan_data = [eplan[['Order', 'Hour', 'Distance', 'ETA', 'FirstTM']]]
             else:
-                plan_data = [eplan[['Order', 'Hour', 'Distance', 'Price', 'ETA']]]
+                plan_data = [eplan[['Order', 'Hour', 'Distance', 'Price', 'ETA', 'FirstTM']]]
             result = models[eplan['TransportMode'] - 1].predict_proba(plan_data)[0]
             cur_max_value = 0
             cur_selected_label = 2
@@ -138,14 +148,14 @@ def get_result(hour_m, train_index):
                     cur_max_value = result[i]
                     cur_selected_label = i
             #select the first plan when cur_max_value == max_value
-            if cur_selected_label == 1 and cur_max_value > max_value:
+            if cur_selected_label == 1 and cur_max_value > max_value and selected_transportMode != 3 and selected_transportMode != 8:
                 selected_transportMode = eplan['TransportMode']
                 max_value = cur_max_value
             elif cur_selected_label == 2:
                 count_not_click += 1
 
         result = 0
-        if (count_not_click < (len(plans) / 2)):
+        if (count_not_click <= (len(plans) / 2)) and selected_transportMode != 3 and selected_transportMode != 8:
             result = selected_transportMode
 
         pred.append([sid, result])
@@ -184,9 +194,9 @@ if __name__ == '__main__':
 
     hour_m3 = getHourM(hour_mapper)
 
-    data_gen(hour_m3, 1)
-    train(1)
-    get_result(hour_m3, 1)
+    data_gen(hour_m3, 'WithOrder_CheckWith3and8_withFirstTM')
+    train('WithOrder_CheckWith3and8_withFirstTM')
+    get_result(hour_m3, 'WithOrder_CheckWith3and8_withFirstTM')
 
 
     # get_result()
